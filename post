@@ -1,0 +1,178 @@
+*&---------------------------------------------------------------------*
+*&      Form  gl_upload_post
+*&---------------------------------------------------------------------*
+*     Call the FM to POST the document.
+*----------------------------------------------------------------------*
+FORM gl_upload_post.
+
+  DATA: wa_extension2 TYPE bapiparex .
+  CHECK  v_error_in_data IS INITIAL . "Only if the simulate bapi was good for entire document.
+  CHECK  v_val_error     IS INITIAL . "Only if our custom validation is by passed.
+  INCLUDE z_fgle_gl_form_post.
+
+*&---------------------------------------------------------------------*
+*    Call the BAPI Function Module to Post the document
+*----------------------------------------------------------------------*
+
+  IF v_error IS INITIAL.                  "RPRAKASH
+
+* Begin of coding for Park the document
+    DATA : gv_zid  TYPE char03 VALUE 'ZID',
+           gv_mark TYPE char01.
+
+    DATA: bkpf_temp TYPE bkpf.
+
+
+    SELECT  SINGLE * FROM bkpf INTO bkpf_temp
+                               WHERE bukrs = wa_glheader_bapiache09-comp_code "RPRAKASH DEFECT 4733
+                                 AND budat = wa_glheader_bapiache09-pstng_date
+                                 AND  xblnr = wa_glheader_bapiache09-ref_doc_no_long.
+    IF sy-subrc <> 0.
+      gv_mark = '1'.
+      SET PARAMETER ID gv_zid FIELD gv_mark.
+      IF r1 = 'X'.
+        gv_mark = 'X'.
+        SET PARAMETER ID gv_zid FIELD gv_mark.
+        MOVE: 'PARK_DOC' TO wa_extension2-structure  ,
+              'Y'        TO wa_extension2-valuepart1 .
+        APPEND wa_extension2 TO i_extension2. CLEAR wa_extension2.
+
+*{Begin of RALVARADO-11022011
+        wa_glheader_bapiache09-trans_date = wa_glheader_bapiache09-pstng_date.
+*}End of RALVARADO-11022011
+
+      ENDIF.
+* End of coding for Park the document
+      SORT i_row BY bapirow.
+      CALL FUNCTION 'BAPI_ACC_DOCUMENT_POST'
+        EXPORTING
+          documentheader    = wa_glheader_bapiache09
+        TABLES
+          accountgl         = i_glline_bapiacgl09
+          accountreceivable = i_glcurrency_bapiacar09              "RALVARADO-04292011
+          accountpayable    = i_apline_bapiacap09
+          currencyamount    = i_glcurrency_bapiaccr09
+          criteria          = i_glcriteria_bapiackec9
+          valuefield        = i_glvaluefield_bapiackev9
+          return            = i_bapireturn
+          extension1        = i_extension1
+          extension2        = i_extension2.
+
+      CLEAR wa_bapireturn.
+      READ TABLE i_bapireturn INTO wa_bapireturn WITH KEY type   = 'S'.
+
+      IF sy-subrc EQ 0.
+        CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+          EXPORTING
+            wait = 'X'.
+        CLEAR wa_checkerror.
+        gv_mark = space.
+        SET PARAMETER ID gv_zid FIELD '1'.
+        LOOP AT i_bapireturn INTO wa_bapireturn WHERE type = 'S'.
+          wa_checkerror-msgtype  = 'S'.
+*      wa_checkerror-account  = wa_bapireturn-message_v2.
+          wa_checkerror-message  = wa_bapireturn-message.
+          wa_checkerror-group  = wa_header-group.
+          IF r1 = 'X'.
+            REPLACE ALL OCCURRENCES OF  'posted' IN wa_checkerror-message WITH 'parked'.
+          ENDIF.
+          IF wa_checkerror-row = 0.
+            READ TABLE i_row INTO wa_row INDEX 1.
+            IF sy-subrc = 0 AND wa_row-srow > 1.
+              wa_checkerror-row = wa_row-srow - 1.
+            ENDIF.
+          ENDIF.
+          APPEND wa_checkerror TO i_checkerror.
+          CLEAR wa_checkerror.
+        ENDLOOP.
+      ELSE.
+        CLEAR wa_checkerror.
+        LOOP AT i_bapireturn INTO wa_bapireturn WHERE type = 'E'.
+          wa_checkerror-msgtype  = 'E'.
+*      wa_checkerror-account  = wa_glline_bapiacgl09-gl_account.
+          wa_checkerror-row      = wa_bapireturn-row    .
+          wa_checkerror-message  = wa_bapireturn-message.
+          wa_checkerror-group  = wa_header-group.
+          CLEAR wa_row.
+          READ TABLE i_row INTO wa_row WITH KEY bapirow = wa_bapireturn-row BINARY SEARCH .
+          wa_checkerror-row      = wa_row-srow .
+          IF wa_checkerror-row = 0.
+            READ TABLE i_row INTO wa_row INDEX 1.
+            IF sy-subrc = 0 AND wa_row-srow > 1.
+              wa_checkerror-row = wa_row-srow - 1.
+            ENDIF.
+          ENDIF.
+          APPEND wa_checkerror TO i_checkerror.
+          CLEAR wa_checkerror.
+        ENDLOOP.
+      ENDIF.
+      REFRESH: i_glline_bapiacgl09,
+             i_glcurrency_bapiacar09,
+             i_apline_bapiacap09,         "RALVARADO-04292011
+             i_glcurrency_bapiaccr09,
+             i_glcriteria_bapiackec9,
+             i_glvaluefield_bapiackev9,
+             i_bapireturn,
+             i_extension2.
+    ELSE.                              " RPRAKASH v_error IS INITIAL.
+      wa_checkerror-message  = 'Document already exists with the same posting date and Reference'.
+      wa_checkerror-group = wa_header-group.
+      IF wa_checkerror-row = 0.
+        READ TABLE i_row INTO wa_row INDEX 1.
+        IF sy-subrc = 0 AND wa_row-srow > 1.
+          wa_checkerror-row = wa_row-srow - 1.
+        ENDIF.
+      ENDIF.
+      APPEND wa_checkerror TO i_checkerror.
+      CLEAR wa_checkerror.
+    ENDIF.
+  ELSE.
+*   BEGIN DEFECT 5596 - LROJASARAGON - 01/14/2013
+*   the tables must be cleared, posted or not
+    REFRESH: i_glline_bapiacgl09,
+             i_glcurrency_bapiacar09,
+             i_glcurrency_bapiaccr09,
+             i_glcriteria_bapiackec9,
+             i_glvaluefield_bapiackev9,
+             i_testbapireturn,
+             i_extension2.
+*   END DEFECT 5596 - LROJASARAGON - 01/14/2013
+  ENDIF.
+
+ENDLOOP.
+
+*clear : i_alvwa[],
+*        i_alvwa.
+*
+*wa_alvwa-fieldname = 'ROW'.
+*wa_alvwa-tabname   = 'I_CHECKERROR'.
+*wa_alvwa-seltext_l = 'Source Row Number'.
+*wa_alvwa-outputlen = '20'.
+*append wa_alvwa to i_alvwa.
+*clear wa_alvwa.
+*
+*wa_alvwa-fieldname = 'GROUP'.
+*wa_alvwa-tabname   = 'I_CHECKERROR'.
+*wa_alvwa-seltext_l = 'Group'.
+*wa_alvwa-outputlen = '20'.
+*append wa_alvwa to i_alvwa.
+*clear wa_alvwa.
+*
+*wa_alvwa-fieldname = 'MESSAGE'.
+*wa_alvwa-tabname   = 'I_CHECKERROR'.
+*wa_alvwa-seltext_l = 'Message'.
+*wa_alvwa-outputlen = '90'.
+*append wa_alvwa to i_alvwa.
+*clear wa_alvwa.
+*
+*call function 'REUSE_ALV_GRID_DISPLAY'
+*  exporting
+*    i_default     = 'X'
+*    it_fieldcat   = i_alvwa
+*  tables
+*    t_outtab      = i_checkerror
+*  exceptions
+*    program_error = 1
+*    others        = 2.
+*
+ENDFORM.       
