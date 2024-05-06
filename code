@@ -1,0 +1,34 @@
+ LOOP AT i_testbapireturn INTO wa_testbapireturn .
+          IF wa_testbapireturn-type CA 'AE'.
+            MOVE:  'Y'  TO  v_error_in_data .
+          ENDIF.
+        ENDLOOP.
+
+        CLEAR wa_testbapireturn.
+        READ TABLE i_testbapireturn INTO wa_testbapireturn WITH KEY type = 'E'.
+
+        IF sy-subrc EQ 0.
+
+          CLEAR wa_checkerror.
+          LOOP AT i_testbapireturn INTO wa_testbapireturn WHERE type = 'E'.
+            wa_checkerror-msgtype  = 'E'.
+*      wa_checkerror-account  = wa_glline_bapiacgl09-gl_account.
+            wa_checkerror-row      = wa_testbapireturn-row    .
+            wa_checkerror-message  = wa_testbapireturn-message.
+            wa_checkerror-group = wa_header-group.
+            CLEAR wa_row.
+            READ TABLE i_row INTO wa_row WITH KEY bapirow = wa_testbapireturn-row BINARY SEARCH .
+            wa_checkerror-row      = wa_row-srow   .
+            IF wa_checkerror-row = 0.
+              READ TABLE i_row INTO wa_row INDEX 1.
+              IF sy-subrc = 0 AND wa_row-srow > 1.
+                wa_checkerror-row = wa_row-srow - 1.
+              ENDIF.
+            ENDIF.
+            APPEND wa_checkerror TO i_checkerror.
+            CLEAR wa_checkerror.
+          ENDLOOP.
+        ELSE.
+          CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+            EXPORTING
+              wait = 'X'.
