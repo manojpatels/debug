@@ -1,0 +1,591 @@
+*&---------------------------------------------------------------------*
+*& Report: < ZEY_GDS_RESQ_CORRECTION >
+*& Author: < SRRAO > *
+*& Description: < ReSQ Correction > *
+*& Date: <31-03-2021> *
+*& Transport Number: < SS4K900062 > *
+*&---------------------------------------------------------------------*
+*&  Include           Z_FGLE_GL_FORM_POST
+*&---------------------------------------------------------------------*
+
+* Moving the data from flat file data internal table to their corresponding tables for BAPI_ACC_DOCUMENT_POST
+*  SORT i_file  BY group.
+
+  CLEAR: wa_header, wa_lineitem, v_group.
+  REFRESH: i_header, i_lineitem .
+
+  LOOP AT i_file INTO wa_file.
+    CLEAR wa_header.
+    IF wa_file-line EQ 'H' AND wa_file-group NE v_group.
+
+      wa_header-line          =   wa_file-line.
+      wa_header-group         =   wa_file-group.
+      wa_header-reference     =   wa_file-reference.
+      wa_header-companycode   =   wa_file-companycode.
+      wa_header-doctype       =   wa_file-doctype.
+      wa_header-headertext    =   wa_file-headertext.
+      wa_header-docdate       =   wa_file-docdate.
+      wa_header-postdate      =   wa_file-postdate.
+      wa_header-revreason     =   wa_file-revreason.
+      wa_header-revdate       =   wa_file-revdate.
+      wa_header-ledgergrp     =   wa_file-ledgergrp.
+      wa_header-currency      =   wa_file-currency.
+*       wa_header-xref1_hd      =   wa_file-xref1_hd.
+      wa_header-xref2_hd      =   wa_file-xref2_hd.
+      APPEND wa_header TO i_header.
+    ENDIF.
+
+    IF wa_file-line EQ 'L'.
+      CLEAR: wa_lineitem, wa_header.
+
+      v_group = wa_file-group.
+      wa_lineitem-line             =   wa_file-line.
+      wa_lineitem-group            =   wa_file-group.
+      wa_lineitem-ccode            =   wa_file-ccode.
+*      wa_lineitem-wbselement       =   wa_file-wbselement.
+      wa_lineitem-itemtext         =   wa_file-itemtext.
+      wa_lineitem-assignment       =   wa_file-assignment.
+      wa_lineitem-customer         =   wa_file-customer.
+*      wa_lineitem-transtype        =   wa_file-transtype.             "RPRAKASH DEFECT 4027
+      wa_lineitem-taxcode          =   wa_file-taxcode.
+      wa_lineitem-taxjur           =   wa_file-taxjur.
+* Begin Rprakash DE1K902949 Add zeros before trading partner Defect 755
+      CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+        EXPORTING
+          input  = wa_file-tradingpart
+        IMPORTING
+          output = wa_lineitem-tradingpart.
+* End Rprakash
+*      WA_LINEITEM-TRADINGPART      =   WA_FILE-TRADINGPART.
+      wa_lineitem-prodhier        =   wa_file-prodhier.     "RPRAKASH DEFECT 4027
+*      wa_lineitem-prodhier4        =   wa_file-prodhier4.
+*      wa_lineitem-prodhier5        =   wa_file-prodhier5.
+** Begin RPRAKASH DE1K902949
+*      wa_lineitem-prodhier6        =   wa_file-prodhier6.
+*      wa_lineitem-prodhier7        =   wa_file-prodhier7.
+*      wa_lineitem-prodhier8        =   wa_file-prodhier8.
+* End RPRAKASH DE1K902949
+      wa_lineitem-currency         =   wa_file-currency.
+      wa_lineitem-docamount        =   wa_file-docamount.
+      wa_lineitem-localamount      =   wa_file-localamount.
+      wa_lineitem-groupamount      =   wa_file-groupamount.
+      wa_lineitem-personnelno      =   wa_file-personnelno.
+      wa_lineitem-product          =  wa_file-product.             "RPRAKASH DEFECT 3171
+**      Begin of Pkomaravolu for E32 08/06/2021
+
+       wa_lineitem-Quantity         =   wa_file-Quantity.
+      wa_lineitem-uom         =   wa_file-uom .
+      wa_lineitem-ebe      =   wa_file-ebe.
+      wa_lineitem-Market      =   wa_file-Market.
+      wa_lineitem-Ship_to_state      =   wa_file-Ship_to_state.
+*      wa_lineitem-Order          =  wa_file-Order.
+        wa_lineitem-refk2     =   wa_file-refk2.
+      wa_lineitem-source         =  wa_file-source .
+       wa_lineitem-ttype     =   wa_file-ttype.
+**      end of pkomaravolu E32
+* Function Module to Add Zeros before ship to party
+      CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'                  "RPRAKASH DEFECT 3171
+        EXPORTING
+          input  = wa_file-ship_to_party
+        IMPORTING
+          output = wa_lineitem-ship_to_party.
+
+*      wa_lineitem-ship_to_party    = wa_file-ship_to_party.        "RPRAKASH DEFECT 3171
+
+* Function Module to Add Zeros before GL Account value
+      CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+        EXPORTING
+          input  = wa_file-account
+        IMPORTING
+          output = wa_lineitem-account.
+
+* Function Module to Add Zeros before Order Number
+      CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+        EXPORTING
+          input  = wa_file-ordernumber
+        IMPORTING
+          output = wa_lineitem-ordernumber.
+
+* Function Module to Add Zeros before Cost Center value
+      CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+        EXPORTING
+          input  = wa_file-costcenter
+        IMPORTING
+          output = wa_lineitem-costcenter.
+
+* Function Module to Add Zeros before Profit Center value
+      CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+        EXPORTING
+          input  = wa_file-profitcenter
+        IMPORTING
+          output = wa_lineitem-profitcenter.
+*{Begin of RALVARADO-04292011
+* Function Module to Add Zeros before Partner Profit Center value
+      CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+        EXPORTING
+          input  = wa_file-partner_pc
+        IMPORTING
+          output = wa_lineitem-partner_pc.
+
+* Function Module to Add Zeros before Customer value
+      CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+        EXPORTING
+          input  = wa_file-customer
+        IMPORTING
+          output = wa_lineitem-customer.
+
+*** Function Module to Add Zeros before Customer value
+*      CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+*        EXPORTING
+*          input  = wa_file-copacustomer
+*        IMPORTING
+*          output = wa_lineitem-copacustomer.
+*}End of RALVARADO-04292011
+** Function Module to Add Zeros before COPA Profit Center value
+*      call function 'CONVERSION_EXIT_ALPHA_INPUT'
+*        exporting
+*          input  = wa_file-copaprofit
+*        importing
+*          output = wa_lineitem-copaprofit.
+
+*    Begin of Insert AMBHAGWAT DE2K909004 Defect-12296 9/18/2017
+*    Function Module to Add Zeros before accounting contract number
+      CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+        EXPORTING
+          input  = wa_file-acc_contract_no
+        IMPORTING
+          output = wa_lineitem-acc_contract_no.
+*      End of Insert AMBHAGWAT DE2K909004 Defect-12296 9/18/2017
+
+      APPEND wa_lineitem TO i_lineitem.
+    ENDIF.
+  ENDLOOP.
+
+  DATA: tabix TYPE i.
+  tabix = 1."for Data header
+
+  "Begin of Defect 8704 - Indian companycode Line item tax - DKANNAN
+  SELECT * FROM t001       INTO CORRESPONDING FIELDS OF TABLE t_t001 .
+  SELECT * FROM t005       INTO CORRESPONDING FIELDS OF TABLE t_t005 .
+  SELECT * FROM ttxd       INTO CORRESPONDING FIELDS OF TABLE t_ttxd .
+  SELECT * FROM j_1iindcus INTO CORRESPONDING FIELDS OF TABLE t_j_1iindcus.
+    SORT t_t001       BY bukrs.
+    SORT t_t005       BY land1.
+    SORT t_ttxd       BY kalsm.
+    SORT t_j_1iindcus BY j_1ibukrs.
+  "End of Defect 8704 - Indian companycode Line item tax - DKANNAN
+
+* Fill Header data
+
+  LOOP AT i_header INTO wa_header." WHERE group NOT IN r_group.
+    tabix = tabix + 1. "For Document Header
+    CLEAR wa_glheader_bapiache09.
+    wa_glheader_bapiache09-comp_code        =   wa_header-companycode.
+    wa_glheader_bapiache09-doc_type         =   wa_header-doctype.
+    wa_glheader_bapiache09-ref_doc_no_long  =   wa_header-reference.
+    wa_glheader_bapiache09-header_txt       =   wa_header-headertext.
+    wa_glheader_bapiache09-doc_date         =   wa_header-docdate.
+    wa_glheader_bapiache09-pstng_date       =   wa_header-postdate.
+    wa_glheader_bapiache09-reason_rev       =   wa_header-revreason.
+    wa_glheader_bapiache09-username         =   sy-uname.
+    wa_glheader_bapiache09-username         =   sy-uname.
+*    wa_extension1-field1                    = 'XREF2_HD'.
+*    wa_extension1-field2                    = wa_header-xref2_HD.
+*    APPEND wa_extension1 TO i_extension1.
+*    CLEAR wa_extension1.
+    l_count = 1.
+    CLEAR: i_row, wa_row , v_error .
+
+
+"Begin of Defect 8704 - Indian companycode Line item tax - DKANNAN
+READ TABLE t_t001 INTO wa_t001 WITH KEY bukrs = wa_header-companycode BINARY SEARCH.
+IF sy-subrc EQ 0.
+  READ TABLE t_t005 INTO wa_t005 WITH KEY land1 = wa_t001-land1 BINARY SEARCH .
+    IF sy-subrc EQ 0.
+      READ TABLE t_ttxd INTO wa_ttxd WITH KEY kalsm = wa_t005-kalsm.
+         IF sy-subrc EQ 0.
+            l_flag_tax_line =  c_item_tax.
+         ELSE.
+           " CLEAR  l_flag_tax_line.
+*               India
+                CALL FUNCTION 'J_1BSA_COMPONENT_ACTIVE'
+                  EXPORTING
+                    bukrs                = wa_header-companycode
+                    component            = 'IN'
+                  EXCEPTIONS
+                    component_not_active = 1
+                    OTHERS               = 2.
+
+                  IF sy-subrc = 0.
+*                    Check CIN is active or not
+                             READ TABLE t_j_1iindcus INTO wa_j_1iindcus WITH KEY j_1ibukrs = wa_header-companycode.
+                        IF sy-subrc EQ 0.
+                        l_flag_tax_line =  c_item_tax.
+                        ELSE.
+                         CLEAR  l_flag_tax_line.
+                        ENDIF.
+                  ELSE.
+                    CLEAR  l_flag_tax_line.
+                  ENDIF.
+              " l_flag_tax_line =  c_item_tax.
+         ENDIF.
+    ELSE.
+        CLEAR  l_flag_tax_line.
+    ENDIF.
+ELSE.
+   CLEAR  l_flag_tax_line.
+ENDIF.
+"End of Defect 8704 - Indian companycode Line item tax - DKANNAN
+
+*   BEGIN DEFECT 5596 - LROJASARAGON - 01/14/2013
+    IF NOT r_group IS INITIAL
+       AND wa_header-group IN r_group.
+*     If the group has crossed company issue must not post at all.
+      v_error = 'X'.
+    ENDIF.
+*   END DEFECT 5596 - LROJASARAGON - 01/14/2013
+
+* Fill GL Account Line Item Data
+    LOOP AT i_lineitem INTO wa_lineitem WHERE group = wa_header-group.
+      BREAK nfarid.
+      tabix = tabix + 1. "For each item
+      wa_row-srow  = tabix  .
+
+      MOVE: l_count           TO    wa_row-bapirow.
+      APPEND  wa_row          TO    i_row .
+*--Begin RPRAKASH.---Should be handled before posting the document.
+*      CLEAR : skb1.
+*      SELECT SINGLE * INTO skb1 FROM skb1 WHERE saknr = wa_lineitem-account
+*                                            AND bukrs = wa_lineitem-ccode
+*                                            AND xintb = 'X' .
+*      IF sy-subrc = 0.
+*        wa_checkerror-msgtype  = 'E'.
+**      wa_checkerror-account  = wa_glline_bapiacgl09-gl_account.
+*        wa_checkerror-row      = wa_row-srow.
+*        CONCATENATE 'Account' wa_lineitem-account
+*                    'can only be posted to internally in company code'
+*                    wa_lineitem-ccode INTO wa_checkerror-message SEPARATED BY space.
+*        APPEND wa_checkerror TO i_checkerror.
+*        CLEAR wa_checkerror.
+*        v_error = 'X'.
+*        EXIT.
+*      ENDIF.
+*----------Should be handled before posting the document.
+
+*--------Check GL Account for Profit Center bucket.
+      CLEAR: v_bpcenter, v_rpcenter.
+      IF wa_lineitem-account IN r_bsaknr.  "Balance Sheet Account
+        MOVE: c_y  TO   v_bpcenter .
+      ENDIF.
+      IF wa_lineitem-account IN r_rsaknr.  "Revenue Account
+        MOVE: c_y TO   v_rpcenter .
+       "Begin of defect 19367 FCJSJ22  27/05/2022
+        ELSE.
+      "clearing values of these values when account field is not available in Revenue Account
+           CLEAR : wa_lineitem-customer , wa_lineitem-prodhier ,
+                   wa_lineitem-product  , wa_lineitem-ship_to_party ,
+                   wa_lineitem-ebe , wa_lineitem-market .
+       "End of defect 19367 FCJSJ22  27/05/2022
+      ENDIF.
+      CLEAR wa_glline_bapiacgl09.
+      CLEAR wa_glaccpay_bapiacap09.                       "RALVARADO-04292011
+
+      wa_glline_bapiacgl09-itemno_acc   =   l_count.
+      wa_glline_bapiacgl09-gl_account   =   wa_lineitem-account.
+      wa_glline_bapiacgl09-comp_code    =   wa_lineitem-ccode.
+      wa_glline_bapiacgl09-costcenter   =   wa_lineitem-costcenter.
+*      wa_glline_bapiacgl09-wbs_element  =   wa_lineitem-wbselement.
+      wa_glline_bapiacgl09-orderid      =   wa_lineitem-ordernumber.
+      IF v_bpcenter EQ c_y.
+        wa_glline_bapiacgl09-profit_ctr   =   wa_lineitem-profitcenter.
+      ENDIF.
+      wa_glline_bapiacgl09-item_text    =   wa_lineitem-itemtext.
+      wa_glline_bapiacgl09-alloc_nmbr   =   wa_lineitem-assignment.
+      wa_glline_bapiacgl09-customer     =   wa_lineitem-customer.
+*      wa_glline_bapiacgl09-cs_trans_t   =   wa_lineitem-transtype.  "RPRAKASH DEFECT 4027
+      wa_glline_bapiacgl09-tax_code     =   wa_lineitem-taxcode.
+      wa_glline_bapiacgl09-taxjurcode   =   wa_lineitem-taxjur.
+      wa_glline_bapiacgl09-trade_id     =   wa_lineitem-tradingpart.
+*{begin of RALVARADO-04292011
+      wa_glline_bapiacgl09-part_prctr   =   wa_lineitem-partner_pc.
+* Begin RPRAKASH - 05/03/2011 Commented the below code
+*      IF WA_GLHEADER_BAPIACHE09-DOC_TYPE EQ C_ZI.
+*        WA_GLLINE_BAPIACGL09-ACCT_TYPE = C_K.
+*        WA_GLLINE_BAPIACGL09-VENDOR_NO = WA_LINEITEM-ACCOUNT.
+*        WA_GLLINE_BAPIACGL09-PROFIT_CTR   =   WA_LINEITEM-PROFITCENTER.
+*
+*        SELECT SINGLE AKONT
+*         INTO WA_GLLINE_BAPIACGL09-GL_ACCOUNT
+*         FROM LFB1
+*        WHERE LIFNR EQ WA_LINEITEM-ACCOUNT
+*          AND BUKRS EQ WA_HEADER-COMPANYCODE.
+
+*      ENDIF.
+* End RPRAKASH - 05/03/2011 Commented the code
+*}End of RALVARADO-04292011
+**Begin of pkomaravolu E32 08/06/2021
+wa_glline_bapiacgl09-cs_trans_t = wa_lineitem-ttype.
+wa_glline_bapiacgl09-entry_qnt = wa_lineitem-Quantity.
+wa_glline_bapiacgl09-entry_uom = wa_lineitem-uom.
+*wa_glline_bapiacgl09-orderid = wa_lineitem-Order.
+wa_glline_bapiacgl09-ref_key_2 = wa_lineitem-refk2.
+
+IF l_flag_tax_line EQ c_item_tax. "DKANNAN Defect 8704
+* ELWRIGHT 02/01/2015 START SS upgrade mod OSS note 2011553 Defect 8535
+      v_numc6 = l_count.
+      MOVE: v_numc6                     TO  wa_glline_bapiacgl09-itemno_tax.
+* ELWRIGHT 02/01/2015 END - SS upgrade mod OSS note 2011553 Defect 8535
+ENDIF.  "DKANNAN Defect 8704
+
+      APPEND wa_glline_bapiacgl09 TO i_glline_bapiacgl09.
+
+* Start Rprakash DE1K903264 5/12/11
+* Fill CurrencyAmount line item data
+* Document Currency
+*      IF wa_lineitem-docamount IS NOT INITIAL.
+      CLEAR wa_glcurrency_bapiaccr09.
+      wa_glcurrency_bapiaccr09-itemno_acc  =  l_count.
+      wa_glcurrency_bapiaccr09-curr_type   = '00'.                "Rprakash DE1K903264
+      wa_glcurrency_bapiaccr09-currency    =  wa_header-currency.
+      wa_glcurrency_bapiaccr09-amt_doccur  =  wa_lineitem-docamount.
+*Begin of change: ReSQ Correction 31/03/2021 SRRAO SS4K900062 *
+      wa_glcurrency_bapiaccr09-amt_doccur_long  =  wa_lineitem-docamount.
+*End of change: ReSQ Correction 31/03/2021 SRRAO SS4K900062 *
+      APPEND wa_glcurrency_bapiaccr09 TO i_glcurrency_bapiaccr09.
+* Local Currency
+      IF wa_lineitem-localamount IS NOT INITIAL .
+        CLEAR wa_glcurrency_bapiaccr09.
+        wa_glcurrency_bapiaccr09-itemno_acc  =  l_count.
+        wa_glcurrency_bapiaccr09-curr_type   = '10'.                "Rprakash DE1K903264
+        IF wa_lineitem-ccode IS NOT INITIAL .
+          SELECT SINGLE waers INTO wa_glcurrency_bapiaccr09-currency FROM t001
+                                                 WHERE bukrs = wa_lineitem-ccode.
+        ELSE.
+          SELECT SINGLE waers INTO wa_glcurrency_bapiaccr09-currency FROM t001
+                                                 WHERE bukrs = wa_header-companycode.
+        ENDIF.
+*        wa_glcurrency_bapiaccr09-currency    =  wa_lineitem-currency.
+        wa_glcurrency_bapiaccr09-amt_doccur  =  wa_lineitem-localamount.
+*Begin of change: ReSQ Correction 31/03/2021 SRRAO SS4K900062 *
+        wa_glcurrency_bapiaccr09-amt_doccur_long  =  wa_lineitem-localamount.
+*End of change: ReSQ Correction 31/03/2021 SRRAO SS4K900062 *
+        APPEND wa_glcurrency_bapiaccr09 TO i_glcurrency_bapiaccr09.
+      ENDIF.
+
+      IF wa_lineitem-groupamount IS NOT INITIAL.
+        CLEAR wa_glcurrency_bapiaccr09.
+        wa_glcurrency_bapiaccr09-itemno_acc  =  l_count.
+        wa_glcurrency_bapiaccr09-curr_type   = '30'.
+        SELECT SINGLE mwaer INTO wa_glcurrency_bapiaccr09-currency FROM t000
+                                               WHERE mandt = sy-mandt.
+*        wa_glcurrency_bapiaccr09-currency    =  wa_lineitem-currency.
+        wa_glcurrency_bapiaccr09-amt_doccur  =  wa_lineitem-groupamount.
+*Begin of change: ReSQ Correction 31/03/2021 SRRAO SS4K900062 *
+        wa_glcurrency_bapiaccr09-amt_doccur_long  =  wa_lineitem-groupamount.
+*ENd of change: ReSQ Correction 31/03/2021 SRRAO SS4K900062 *
+        APPEND wa_glcurrency_bapiaccr09 TO i_glcurrency_bapiaccr09.
+      ENDIF.
+* End Rprakash DE1K903264 5/12/11
+
+* Fill AccountReceivable line item data
+*      wa_glcurrency_bapiacar09-itemno_acc  =  l_count.
+*      wa_glcurrency_bapiacar09-customer    =  wa_lineitem-customer.
+*      wa_glcurrency_bapiacar09-gl_account  =  wa_lineitem-account.
+*      wa_glcurrency_bapiacar09-comp_code   =  wa_lineitem-ccode.
+*      wa_glcurrency_bapiacar09-pymt_cur    =  wa_lineitem-currency.
+*      wa_glcurrency_bapiacar09-pymt_amt    =  wa_lineitem-localamount.
+*      APPEND wa_glcurrency_bapiacar09 TO i_glcurrency_bapiacar09.
+
+* Fill Criteria line item data
+* Build COPA (Profitability Segment)
+* Posting in accounting: CO-PA acct assignment characteristics
+*{Begin of RALVARADO-04292011
+*      IF NOT wa_lineitem-copacustomer IS INITIAL.
+*        CLEAR wa_glcriteria_bapiackec9.
+*        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+*        wa_glcriteria_bapiackec9-fieldname   =  'KNDNR'.
+*        wa_glcriteria_bapiackec9-character   =  wa_lineitem-copacustomer.
+*        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+*      ENDIF.
+      IF NOT wa_lineitem-customer IS INITIAL.
+        CLEAR wa_glcriteria_bapiackec9.
+        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+        wa_glcriteria_bapiackec9-fieldname   =  'KNDNR'.
+        wa_glcriteria_bapiackec9-character   =  wa_lineitem-customer.
+        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+      ENDIF.
+*}End of RALVARADO-04292011
+      IF v_rpcenter EQ c_y AND NOT
+         wa_lineitem-profitcenter IS INITIAL.
+        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+        wa_glcriteria_bapiackec9-fieldname   =  'PRCTR'.
+        wa_glcriteria_bapiackec9-character   =  wa_lineitem-profitcenter.
+        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+      ENDIF.
+      IF NOT wa_lineitem-prodhier IS INITIAL.
+        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+        wa_glcriteria_bapiackec9-fieldname   =  'PRODH'.
+        wa_glcriteria_bapiackec9-character   =  wa_lineitem-prodhier.
+        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+      ENDIF.
+*      IF NOT wa_lineitem-prodhier4 IS INITIAL.
+*        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+*        wa_glcriteria_bapiackec9-fieldname   =  'PAPH4'.
+*        wa_glcriteria_bapiackec9-character   =  wa_lineitem-prodhier4.
+*        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+*      ENDIF.
+*      IF NOT wa_lineitem-prodhier5 IS INITIAL.
+*        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+*        wa_glcriteria_bapiackec9-fieldname   =  'PAPH5'.
+*        wa_glcriteria_bapiackec9-character   =  wa_lineitem-prodhier5.
+*        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+*      ENDIF.
+** Begin RPRAKASH DE1K902949
+*      IF NOT wa_lineitem-prodhier6 IS INITIAL.
+*        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+*        wa_glcriteria_bapiackec9-fieldname   =  'PAPH6'.
+*        wa_glcriteria_bapiackec9-character   =  wa_lineitem-prodhier6.
+*        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+*      ENDIF.
+*      IF NOT wa_lineitem-prodhier7 IS INITIAL.
+*        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+*        wa_glcriteria_bapiackec9-fieldname   =  'PAPH7'.
+*        wa_glcriteria_bapiackec9-character   =  wa_lineitem-prodhier7.
+*        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+*      ENDIF.
+*      IF NOT wa_lineitem-prodhier8 IS INITIAL.
+*        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+*        wa_glcriteria_bapiackec9-fieldname   =  'PAPH8'.
+*        wa_glcriteria_bapiackec9-character   =  wa_lineitem-prodhier8.
+*        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+*      ENDIF.
+*---Begin of RPRAKASH DEFECT 3171
+      IF NOT wa_lineitem-product IS INITIAL.
+        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+        wa_glcriteria_bapiackec9-fieldname   =  'ARTNR'.
+        wa_glcriteria_bapiackec9-character   =  wa_lineitem-product.
+        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+      ENDIF.
+
+      IF NOT wa_lineitem-ship_to_party IS INITIAL.
+        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+        wa_glcriteria_bapiackec9-fieldname   =  'KUNWE'.
+        wa_glcriteria_bapiackec9-character   =  wa_lineitem-ship_to_party.
+        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+      ENDIF.
+
+*---End of RPRAKASH DEFECT 3171
+
+* End RPRAKASH DE1K902949
+****      begin of pkomaravolu for E032 08/06/2021
+     IF NOT wa_lineitem-source IS INITIAL.
+        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+        wa_glcriteria_bapiackec9-fieldname   =  'WWSRC'.
+        wa_glcriteria_bapiackec9-character   =  wa_lineitem-source.
+        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+      ENDIF.
+       IF NOT wa_lineitem-ebe IS INITIAL.
+        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+        wa_glcriteria_bapiackec9-fieldname   =  'WWEBE'.
+        wa_glcriteria_bapiackec9-character   =  wa_lineitem-ebe.
+        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+      ENDIF.
+      IF NOT wa_lineitem-Market IS INITIAL.
+        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+        wa_glcriteria_bapiackec9-fieldname   =  'WWMKT'.
+        wa_glcriteria_bapiackec9-character   =  wa_lineitem-Market.
+        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+      ENDIF.
+***      end of pkomaravolu
+* Fill ValueField line item data
+* Build COPA (Profitability Segment)
+* Posting in accounting: CO-PA acct assignment value fields
+*      CLEAR wa_glvaluefield_bapiackev9.
+*      wa_glvaluefield_bapiackev9-itemno_acc  = l_count.
+*      wa_glvaluefield_bapiackev9-fieldname   = 'PRCTR'.
+*      wa_glvaluefield_bapiackev9-AMT_VALCOM  =  wa_lineitem-profitcenter.
+*      APPEND wa_glvaluefield_bapiackev9 TO i_glvaluefield_bapiackev9.
+*
+*      wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+*      wa_glvaluefield_bapiackev9-fieldname   = 'KNDNR'.
+*      wa_glvaluefield_bapiackev9-AMT_VALCOM  =  wa_lineitem-customer.
+*      APPEND wa_glvaluefield_bapiackev9 TO i_glvaluefield_bapiackev9.
+*
+*      wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+*      wa_glvaluefield_bapiackev9-fieldname   = 'PAPH3'.
+*      wa_glvaluefield_bapiackev9-AMT_VALCOM  =  wa_lineitem-prodhier3.
+*      APPEND wa_glvaluefield_bapiackev9 TO i_glvaluefield_bapiackev9.
+*
+*      wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+*      wa_glvaluefield_bapiackev9-fieldname   = 'PAPH4'.
+*      wa_glvaluefield_bapiackev9-AMT_VALCOM  =  wa_lineitem-prodhier4.
+*      APPEND wa_glvaluefield_bapiackev9 TO i_glvaluefield_bapiackev9.
+*
+*      wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+*      wa_glvaluefield_bapiackev9-fieldname   = 'PAPH5'.
+*      wa_glvaluefield_bapiackev9-AMT_VALCOM  =  wa_lineitem-prodhier5.
+*      APPEND wa_glvaluefield_bapiackev9 TO i_glvaluefield_bapiackev9.
+
+* Fill Extension2 line item data
+* Passing value to Personnel Number(PERNR) & Ledger Group(LDGRP) using BADI Extension
+
+      CLEAR wa_extension2.
+         wa_extension2-structure  =  'ZPERS'.
+      wa_extension2-valuepart1  =  l_count.
+      wa_extension2-valuepart2  =  wa_lineitem-personnelno.
+      wa_extension2-valuepart3  =  wa_header-ledgergrp.
+      wa_extension2-valuepart4  =  wa_header-revdate.
+      APPEND wa_extension2 TO i_extension2.
+
+*{Begin RALVARADO-04292011
+* Fill Account Payable line item data
+*      IF WA_GLHEADER_BAPIACHE09-DOC_TYPE EQ C_ZI.
+*        L_COUNT = L_COUNT + 1.
+*        WA_GLACCPAY_BAPIACAP09-ITEMNO_ACC   =   L_COUNT.
+*        WA_GLACCPAY_BAPIACAP09-VENDOR_NO    =   WA_LINEITEM-ACCOUNT.
+*        WA_GLACCPAY_BAPIACAP09-COMP_CODE    =   WA_LINEITEM-CCODE.
+*        APPEND WA_GLACCPAY_BAPIACAP09 TO I_APLINE_BAPIACAP09.
+*
+** Fill CurrencyAmount line item data
+*        CLEAR WA_GLCURRENCY_BAPIACCR09.
+*        WA_GLCURRENCY_BAPIACCR09-ITEMNO_ACC  =  L_COUNT.
+*        WA_GLCURRENCY_BAPIACCR09-CURRENCY    =  WA_LINEITEM-CURRENCY.
+*        WA_GLCURRENCY_BAPIACCR09-AMT_DOCCUR  =  WA_LINEITEM-DOCAMOUNT.
+*        APPEND WA_GLCURRENCY_BAPIACCR09 TO I_GLCURRENCY_BAPIACCR09.
+*      ENDIF.
+*}End of RALVARADO-04292011
+
+"  Begin of Insert AMBHAGWAT DE2K909004 Defect-12296 9/18/2017
+*  Append Copa characteristic WWRAC with accounting contract number
+      IF v_rpcenter EQ c_y AND
+        wa_lineitem-acc_contract_no IS NOT INITIAL.
+        wa_glcriteria_bapiackec9-itemno_acc  =  l_count.
+        wa_glcriteria_bapiackec9-fieldname   =  'WWRAC'.
+        wa_glcriteria_bapiackec9-character   =  wa_lineitem-acc_contract_no.
+        APPEND wa_glcriteria_bapiackec9 TO i_glcriteria_bapiackec9.
+      ENDIF.
+*  Append extension table with Accounting contract number
+      CLEAR wa_extension2.
+      IF wa_lineitem-acc_contract_no IS NOT INITIAL.
+        wa_extension2-structure   =  'ZZRAVBELN'.
+        wa_extension2-valuepart2  =  l_count.
+        wa_extension2-valuepart3  =  wa_lineitem-acc_contract_no.
+        APPEND wa_extension2 TO i_extension2.
+      ENDIF.
+      IF wa_header-xref2_HD IS NOT INITIAL.
+           wa_extension2-structure   =  'XREF2_HD'.
+*        wa_extension2-valuepart2  =  l_count.
+        wa_extension2-valuepart1  =  wa_header-xref2_HD.
+        APPEND wa_extension2 TO i_extension2.
+        ENDIF.
+*              IF wa_header-xref1_HD IS NOT INITIAL.
+*           wa_extension2-structure   =  'REF1_HD'.
+**        wa_extension2-valuepart2  =  l_count.
+*        wa_extension2-valuepart1  =  wa_header-xref1_HD.
+*        APPEND wa_extension2 TO i_extension2.
+*        ENDIF.
+"     End of Insert AMBHAGWAT DE2K909004 Defect-12295 9/13/2017
+
+      l_count = l_count + 1.
+    ENDLOOP.
+    CLEAR l_count.
